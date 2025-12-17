@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* --- CSS Tùy chỉnh (để xử lý chiều cao màn hình) --- */
+
+/* Đảm bảo nội dung chính kéo dài đủ chiều cao màn hình, 
+   trừ đi chiều cao của Header và Footer */
+.min-h-screen-content {
+  /* Giả định Header và Footer mỗi cái có chiều cao khoảng 64px (4rem) */
+  min-height: calc(100vh - 100px); 
+}
+
+/* Kiểu chữ cơ bản */
+body {
+    /* Đảm bảo font chữ đã được cài đặt hoặc là font hệ thống */
+    font-family: 'Inter', sans-serif; 
+    background-color: #f7f9fc;
+}
+
+/* Tùy chỉnh cho animation spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

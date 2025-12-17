@@ -1,0 +1,48 @@
+Chắc chắn rồi! Để tổng hợp lại toàn bộ quy trình, đây là hướng dẫn từng bước chi tiết để xây dựng và triển khai ứng dụng Chuyển đổi & Thanh toán Stablecoin Xuyên biên giới trên Arc, tích hợp các công nghệ đã thảo luận: StableFX, Permit2, Chainlink, và Fiat On/Off-Ramps.
+
+## 🛠️ Hướng Dẫn Từng Bước Triển khai Ứng dụng FX trên Arc
+
+### Giai đoạn 1: Chuẩn bị Cơ sở hạ tầng (Setup & Environment)
+
+| Bước | Mô tả Công việc | Mục tiêu |
+| :--- | :--- | :--- |
+| **1.1. Thiết lập Dự án EVM** | Sử dụng Hardhat hoặc Foundry để tạo dự án và cài đặt thư viện web3 (Ethers.js/Viêm) để tương tác với Arc. | Môi trường phát triển sẵn sàng. |
+| **1.2. Kết nối Arc Network** | Cấu hình RPC endpoint cho Arc Testnet hoặc Mainnet. Đảm bảo bạn có khóa API và tài khoản ví chứa các Stablecoin thử nghiệm (USDC, JPYC, v.v.). | Truy cập và giao dịch được trên Arc. |
+| **1.3. Xác định Hợp đồng (Contracts)** | Thu thập địa chỉ của **Permit2**, **StableFX**, các token **Stablecoin** (USDC, JPYC), và **Chainlink Data Feed** cho các cặp FX (ví dụ: USD/JPY) trên Arc. | Các địa chỉ on-chain cần thiết đã có. |
+
+### Giai đoạn 2: Tích hợp Quản lý Tài sản (Permit2 & Tokens)
+
+| Bước | Mô tả Công việc | Mục tiêu |
+| :--- | :--- | :--- |
+| **2.1. Phê duyệt Master (Master Approval)** | Tổ chức Tài chính (OFI) gửi giao dịch **một lần** để cấp quyền `approve` số lượng tối đa token (ví dụ: USDC, JPYC) cho địa chỉ hợp đồng **Permit2**. | Cho phép Permit2 quản lý tài sản của OFI. |
+| **2.2. Xây dựng Logic Nonce** | Thiết lập một cơ sở dữ liệu ngoài chuỗi để theo dõi `nonce` đã sử dụng cho mỗi ví OFI để ngăn chặn tấn công phát lại (replay attack) chữ ký Permit2. | Bảo mật chữ ký Permit2. |
+
+### Giai đoạn 3: Tính toán Tỷ lệ Quy đổi (FX Rates & Spread)
+
+| Bước | Mô tả Công việc | Mục tiêu |
+| :--- | :--- | :--- |
+| **3.1. Truy vấn Chainlink (On-chain/Off-chain)** | Gọi hàm `latestRoundData()` của Hợp đồng Chainlink Aggregator (ví dụ: USD/JPY Feed) để lấy tỷ giá giao ngay (Mid-Market Rate). | Có được tỷ giá FX trung tâm đáng tin cậy. |
+| **3.2. Tính toán Spread & RFQ** | **Hệ thống Backend (RFQ Engine)** của bạn nhận Mid-Rate, áp dụng Spread theo chính sách kinh doanh (ví dụ: $0.1\%$). Tính toán tỷ giá Mua (Bid) và Bán (Ask). | Tạo ra báo giá cuối cùng có lợi nhuận. |
+| **3.3. Tạo Dữ liệu Thanh toán** | Sử dụng báo giá cuối cùng để tạo ra **`settlement_data`** (dữ liệu giao dịch) bao gồm số lượng, thời hạn, và địa chỉ của StableFX. | Chuẩn bị dữ liệu cho giao dịch on-chain. |
+
+
+
+### Giai đoạn 4: Thực hiện Giao dịch Thanh toán (StableFX Execution)
+
+| Bước | Mô tả Công việc | Mục tiêu |
+| :--- | :--- | :--- |
+| **4.1. Ký Chữ ký Permit2** | Sử dụng ví của OFI để ký thông báo ngoài chuỗi (EIP-712) cho phép StableFX rút số lượng token cần thiết từ ví. | Tạo `permit2_signature` an toàn và hiệu quả. |
+| **4.2. Gửi Giao dịch `settle()`** | Gửi giao dịch lên Arc, gọi hàm `StableFX.settle()` với hai tham số chính: `settlement_data` và `permit2_signature`. | Thực hiện hoán đổi Stablecoin-to-Stablecoin an toàn (PvP). |
+| **4.3. Kiểm tra Slippage (On-chain)** | Hợp đồng StableFX kiểm tra tỷ giá thực tế có nằm trong giới hạn Slippage được thiết lập trong `settlement_data` không. Nếu không, giao dịch sẽ hoàn tác. | Bảo vệ giao dịch khỏi trượt giá ngoài ý muốn. |
+
+### Giai đoạn 5: Tích hợp Fiat On/Off-Ramps (Hoàn tất)
+
+| Bước | Mô tả Công việc | Mục tiêu |
+| :--- | :--- | :--- |
+| **5.1. On-Ramp (Fiat $\rightarrow$ Stablecoin)** | Hướng dẫn OFI sử dụng tài khoản Circle Mint hoặc các đối tác đã được cấp phép để chuyển tiền fiat (USD/JPY) và nhận Stablecoin (USDC/JPYC) tương ứng trên Arc. | Nạp tiền vào ví on-chain. |
+| **5.2. Off-Ramp (Stablecoin $\rightarrow$ Fiat)** | Khi OFI muốn rút tiền, họ gửi lệnh `redeem` qua API/nền tảng của Circle hoặc đối tác, chuyển Stablecoin trở lại địa chỉ đốt (burn address). | Chuyển Stablecoin thành tiền fiat trong ngân hàng. |
+| **5.3. Hỗ trợ Người dùng** | Cung cấp tài liệu hướng dẫn và liên kết rõ ràng về quy trình on/off ramp của các nhà phát hành Stablecoin đối tác (JPYC, AUDF). | Đảm bảo người dùng biết cách hoàn tất vòng thanh toán. |
+
+Các bước này đảm bảo bạn có một giải pháp toàn diện: sử dụng Chainlink cho định giá an toàn, Permit2 cho trải nghiệm người dùng hiệu quả, StableFX cho thực hiện giao dịch an toàn (PvP), và tích hợp các kênh Mint/Redeem cho quy trình Fiat on/off-ramp.
+
+Bạn có muốn xem một ví dụ chi tiết hơn về cấu trúc của **Hệ thống Báo giá RFQ Ngoài chuỗi** không?
